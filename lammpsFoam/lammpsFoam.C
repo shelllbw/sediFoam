@@ -70,57 +70,78 @@ int main(int argc, char *argv[])
     #include "liftDragCoeffs.H"
 
     splitTime[1] += runTime.elapsedCpuTime() - t0;
+    Foam::dimensionedScalar endTime = runTime.endTime();
 
-    while (runTime.run())
+    for (int i = 0; i < cloud.get_lmp_nloops(); i++)
     {
-        t0 = runTime.elapsedCpuTime();
+      Info<< "\nStarting biological steps \n" << endl;
+      // biological steps
+      cloud.set_lmp_demflag(0);
+      cloud.set_lmp_timestep(cloud.get_lmp_bio_dt());
+      cloud.lmp_step(cloud.get_lmp_bio_steps());
+      int nlocal =  cloud.get_nlocal();
 
-        runTime++;
-        Info<< "Time = " << runTime.timeName() << nl << endl;
+      Info<< "\nStarting DEM/CFD steps \n" << endl;
+      // dem/cfd steps
+      cloud.set_lmp_demflag(1);
+      cloud.set_lmp_timestep(cloud.get_lmp_dem_dt());
+      if (nlocal != cloud.get_nlocal())
+        cloud.updateParticles();
 
-        // Correct the kinetic viscosity
-        // not applicable in Newtonian flow
-        continuousPhaseTransport.correct();
+      while (runTime.run())
+      {
+          t0 = runTime.elapsedCpuTime();
 
-        #include "readPISO.H"
-        #include "CourantNo.H"
+          runTime++;
+          Info<< "Time = " << runTime.timeName() << nl << endl;
 
-        #include "alphaEqn.H"
+          // Correct the kinetic viscosity
+          // not applicable in Newtonian flow
+          continuousPhaseTransport.correct();
 
-        #include "UEqns.H"
+          #include "readPISO.H"
+          #include "CourantNo.H"
 
-        // --- PISO loop
-        #include "pEqn.H"
+          #include "alphaEqn.H"
 
-        // update the turbulence viscosity
-        continuousPhaseTurbulence->correct();
+          #include "UEqns.H"
 
-        #include "DDtU.H"
+          // --- PISO loop
+          #include "pEqn.H"
 
-        splitTime[0] += runTime.elapsedCpuTime() - t0;
-        t0 = runTime.elapsedCpuTime();
+          // update the turbulence viscosity
+          continuousPhaseTurbulence->correct();
 
-        // get drag from latest velocity fields and evolve particles.
-        #include "moveParticles.H"
+          #include "DDtU.H"
 
-        splitTime[1] += runTime.elapsedCpuTime() - t0;
-        t0 = runTime.elapsedCpuTime();
+          splitTime[0] += runTime.elapsedCpuTime() - t0;
+          t0 = runTime.elapsedCpuTime();
 
-        #include "liftDragCoeffs.H"
-        #include "write.H"
+          // get drag from latest velocity fields and evolve particles.
+          #include "moveParticles.H"
 
-        splitTime[2] += runTime.elapsedCpuTime() - t0;
-        t0 = runTime.elapsedCpuTime();
+          splitTime[1] += runTime.elapsedCpuTime() - t0;
+          t0 = runTime.elapsedCpuTime();
 
-        #include "writeCPUTime.H"
+          #include "liftDragCoeffs.H"
+          #include "write.H"
 
-        if (runTime.outputTime())
-        {
-            // TODO: for debugging
-            volVectorField ggradp("gradp",fvc::grad(p));
-            ggradp.write();
-        }
+          splitTime[2] += runTime.elapsedCpuTime() - t0;
+          t0 = runTime.elapsedCpuTime();
+
+          #include "writeCPUTime.H"
+
+          if (runTime.outputTime())
+          {
+              // TODO: for debugging
+              volVectorField ggradp("gradp",fvc::grad(p));
+              ggradp.write();
+          }
+      }
+
+      runTime.setEndTime(runTime.endTime()+endTime);
     }
+
 
     Info<< "End\n" << endl;
 

@@ -41,26 +41,40 @@ extern "C" {
                                double* diam, double* rho_, int* tag_,
                                int* lmpCpuId_, int* type_);
 
-  /* get atom number in each lmp cpu */
+  /* get atom number   in each lmp cpu */
   int lammps_get_local_n(void* ptr);
 
   /* get local domain in each lmp cpu */
   void lammps_get_local_domain(void* ptr, double* domain_);
-
+  void lammps_set_local_domain(void* ptr, double* domain_);
   /* get atom x&v&foamCpuId&lmpCpuId */
   void lammps_get_local_info(void* ptr, double* coords, double* velos_,
                              int* foamCpuId_, int* lmpCpuId_, int* tag_);
+
+  void lammps_get_complete_local_info(void* ptr, double* coords_, double* velos_,
+                             int* foamCpuId_, int* lmpCpuId_, int* tag_,
+                 double* rho_, double* diam_, int* type_);
 
   /* set atom x&v&foamCpuId for all procs */
   void lammps_put_local_info(void* ptr, int nLocalIn, double* fdrag, 
                              double* DuDt, int* foamCpuIdIn, int* tagIn);
   void lammps_put_local_grid_info(void* ptr, double* gridPU);
   void lammps_step(void* ptr, int n);
+  void lammps_ini_step(void* ptr, int n);
   void lammps_set_timestep(void* ptr, double dt_i);
   double lammps_get_timestep(void* ptr);
   void lammps_create_particle(void* ptr, int npAdd, double* position, double* tag, 
                               double diameter, double rho, int type, double* vel);
   void lammps_delete_particle(void* ptr, int* deleteList, int nDelete);
+
+  int lammps_get_demflag(void *ptr);
+  void lammps_set_demflag(void *ptr, int x);
+
+  int lammps_get_bio_steps(void* ptr);
+  int lammps_get_dem_steps(void* ptr);
+  int lammps_get_nloops(void* ptr);
+  double lammps_get_bio_dt(void* ptr);
+  double lammps_get_dem_dt(void* ptr);
 
   /* used in the sorting part when assigning data from OpenFOAM*/
   struct tagpair {

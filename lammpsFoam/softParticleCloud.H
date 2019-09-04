@@ -69,7 +69,6 @@ class softParticleCloud
 
         //- LAMMPS
         LAMMPS* lmp_;
-
         // Temporarily holder for particle properties in LAMMPS
 
             //- Particle position
@@ -242,6 +241,17 @@ protected:
             volVectorField &UfSmoothed_
         );
 
+        void ConstructParticle
+        (
+           vector x,
+           vector v,
+           double d,
+           double rho,
+           int tag,
+           int lmpCpuId,
+           int type
+        );
+
         //- Set particle positions and velocities of the cloud
         //  using data from LAMMPS
         void setPositionVeloCpuId
@@ -356,6 +366,69 @@ public:
             {
                 return cpuTimeSplit_;
             };
+
+            bigint get_lmp_nsteps()
+            {
+              return lmp_->update->nsteps;
+            };
+
+            int get_lmp_bio_steps()
+            {
+              return lammps_get_bio_steps(lmp_);
+            };
+
+            int get_lmp_dem_steps()
+            {
+              return lammps_get_dem_steps(lmp_);
+            };
+
+            int get_lmp_nloops()
+            {
+              return lammps_get_nloops(lmp_);
+            };
+
+            double get_lmp_bio_dt()
+            {
+              return lammps_get_bio_dt(lmp_);
+            };
+
+            double get_lmp_dem_dt()
+            {
+              return lammps_get_dem_dt(lmp_);
+            };
+
+            int get_nlocal()
+            {
+              return lmp_->atom->nlocal;
+            };
+
+            double get_lmp_ntimestep()
+            {
+              return lmp_->update->ntimestep;
+            };
+
+            void set_lmp_timestep(double dt)
+            {
+              lammps_set_timestep(lmp_, dt);
+            };
+
+            int get_lmp_demflag()
+            {
+              return lammps_get_demflag(lmp_);
+            };
+
+            void set_lmp_demflag(int x)
+            {
+              lammps_set_demflag(lmp_,x);
+            };
+
+            void lmp_step(int nstep)
+            {
+              lammps_step(lmp_, nstep);
+            };
+
+            void updateParticles();
+
 
         // I-O
 
