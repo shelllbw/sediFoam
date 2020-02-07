@@ -20,6 +20,7 @@
 #include "stdio.h"
 #include "string.h"
 #include "pair_gran_hertzFix_history.h"
+#include "fix_neigh_history.h"
 #include "atom.h"
 #include "update.h"
 #include "force.h"
@@ -100,8 +101,8 @@ void PairGranHertzFixHistory::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firsttouch = list->listgranhistory->firstneigh;
-  firstshear = list->listgranhistory->firstdouble;
+  firsttouch = fix_history->firstflag;
+  firstshear = fix_history->firstvalue;
 
   // loop over neighbors of my atoms
 
@@ -430,15 +431,14 @@ double PairGranHertzFixHistory::single(int i, int j, int itype, int jtype,
   // start from neighprev, since will typically be next neighbor
   // reset neighprev to 0 as necessary
 
-  int *jlist = list->firstneigh[i];
   int jnum = list->numneigh[i];
-  int *touch = list->listgranhistory->firstneigh[i];
-  double *allshear = list->listgranhistory->firstdouble[i];
+  int *jlist = list->firstneigh[i];
+  double *allshear = fix_history->firstvalue[i];
 
   for (int jj = 0; jj < jnum; jj++) {
     neighprev++;
     if (neighprev >= jnum) neighprev = 0;
-    if (touch[neighprev] == j) break;
+    if (jlist[neighprev] == j) break;
   }
 
   double *shear = &allshear[3*neighprev];
