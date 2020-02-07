@@ -23,6 +23,7 @@
 #include "atom_vec.h"
 #include "fix_fluid_drag.h" // added JS
 #include "fix_bio_kinetics.h"
+#include "fix_bio_fluid.h" // added JS
 #include "modify.h"
 #include "string.h"
 #include "stdio.h"
@@ -32,6 +33,7 @@
 #include "memory.h"
 #include "group.h"
 #include "domain.h"
+#include "comm.h"
 
 using namespace LAMMPS_NS;
 
@@ -143,7 +145,7 @@ void lammps_get_initial_np(void* ptr, int* np_)
 void lammps_get_initial_info(void* ptr, double* coords, double* velos, double* diam,
                      double* rho_, int* tag_, int* lmpCpuId_, int* type_)
 {
-  printf("start getting info..");
+  printf("start getting info..\n");
   int myrank;
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
@@ -151,13 +153,13 @@ void lammps_get_initial_info(void* ptr, double* coords, double* velos, double* d
   int natoms = static_cast<int> (lammps->atom->natoms);
   int nlocal = lammps->atom->nlocal;
 
-  printf("initializing position and velocity");
+  printf("initializing position and velocity \n");
   for (int i = 0; i < 3*nlocal; i++) {
     coords[i] = 0.0;
     velos[i] = 0.0;
   }
 
-  printf("initializing other values");
+  printf("initializing other values\n");
   for (int i = 0; i < nlocal; i++) {
     diam[i] = 0.0;
     rho_[i] = 0.0;
@@ -166,7 +168,7 @@ void lammps_get_initial_info(void* ptr, double* coords, double* velos, double* d
     lmpCpuId_[i] = 0;
   }
 
-  printf("find the pointers");
+  printf("find the pointers \n");
   //Info provided to Foam Cloud.
   double **x = lammps->atom->x;
   double **v = lammps->atom->v;
@@ -181,7 +183,7 @@ void lammps_get_initial_info(void* ptr, double* coords, double* velos, double* d
   int *tag = lammps->atom->tag;
 
   int id,offset;
-  printf("start the loop!");
+  printf("start the loop! \n");
   for (int i = 0; i < nlocal; i++) {
 
     offset = 3*i;
@@ -240,6 +242,23 @@ void lammps_get_local_domain(void* ptr, double* domain_)
           myrank, domain_[0], domain_[1], domain_[2], domain_[3], domain_[4], domain_[5]);
 }
 
+void lammps_set_local_domain (void* ptr, double* domain_)
+{
+  int myrank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  double *sublo = lammps->domain->sublo;
+  double *subhi = lammps->domain->subhi;
+
+  sublo[0] = domain_[0];
+  subhi[0] = domain_[1];
+  sublo[1] = domain_[2];
+  subhi[1] = domain_[3];
+  sublo[2] = domain_[4];
+  subhi[2] = domain_[5];
+}
 
 /* ---------------------------------------------------------------------- */
 // Provide particle info (incl. coordinate, velocity etc.) to Foam
@@ -308,6 +327,73 @@ void lammps_get_local_info(void* ptr, double* coords_, double* velos_,
   delete [] copytag;
 }
 
+// Provide particle info (incl. coordinate, velocity etc.) to Foam
+// Note: No MPI communication occurs! Info is sent to the same processor.
+void lammps_get_complete_local_info(void* ptr, double* coords_, double* velos_,
+    int* foamCpuId_, int* lmpCpuId_, int* tag_, double* rho_, double* diam_,
+    int* type_) {
+
+  int myrank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid_drag class
+  class FixFluidDrag *drag_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++)
+    if (strcmp(lammps->modify->fix[i]->style, "fdrag") == 0)
+      break;
+
+  if (i < lammps->modify->nfix)
+    //initialize the pointer
+    drag_ptr = (FixFluidDrag *) lammps->modify->fix[i];
+
+  // Coordinate, velocity etc. on Lammps *local* processor
+  double **x = lammps->atom->x;
+  double **v = lammps->atom->v;
+  int *tag = lammps->atom->tag;
+  int *type = lammps->atom->type;
+  int nlocal = lammps->atom->nlocal;
+  double *r = lammps->atom->radius;
+  double *rho = lammps->atom->rmass;
+
+  int *copyfoamCpuId = new int[nlocal];
+  int *copytag = new int[nlocal];
+
+  for (int i = 0; i < nlocal; i++) {
+    copyfoamCpuId[i] = 0;
+    copytag[i] = 0;
+    diam_[i] = 0.0;
+    rho_[i] = 0.0;
+  }
+
+  for (int i = 0; i < nlocal; i++) {
+    coords_[3 * i + 0] = x[i][0];
+    coords_[3 * i + 1] = x[i][1];
+    coords_[3 * i + 2] = x[i][2];
+    velos_[3 * i + 0] = v[i][0];
+    velos_[3 * i + 1] = v[i][1];
+    velos_[3 * i + 2] = v[i][2];
+    // Copy diameters
+    diam_[i] = r[i] * 2.0;
+    // Copy density
+    // commented by rui
+    // modify the density
+    rho_[i] = 3.0 * rho[i]
+        / (4.0 * 3.14159265358917323846 * r[i] * r[i] * r[i]);
+
+    foamCpuId_[i] = drag_ptr->foamCpuId[i];
+
+    lmpCpuId_[i] = myrank;
+    tag_[i] = tag[i];
+    type_[i] = type[i];
+  }
+
+  delete[] copyfoamCpuId;
+  delete[] copytag;
+}
 
 /* ---------------------------------------------------------------------- */
 // Provide particle info (incl. coordinate, velocity etc.) to Foam
@@ -423,6 +509,23 @@ void lammps_step(void *ptr, int n)
 
   lammps->input->one(cmd);
 }
+
+// Evolve n steps forward without overhead
+//void lammps_step(void *ptr, int n)
+//{
+//  LAMMPS *lammps = (LAMMPS *) ptr;
+//  // lammps -> Run -> command(5, n, "pre", "no", "post", "no");
+//  char cmd[50];
+//  int nc;
+//
+//  nc = sprintf(cmd, "run %d pre no post no", n);
+//  if(nc <= 0) {
+//    printf("lammps_step: Command print failure.");
+//    MPI_Abort(MPI_COMM_WORLD, 1);
+//  }
+//
+//  lammps->input->one(cmd);
+//}
 
 /* ---------------------------------------------------------------------- */
 
@@ -651,4 +754,150 @@ void lammps_delete_particle(void *ptr, int* deleteList, int nDelete)
   // ndeleted += ndel;
   // next_reneighbor = update->ntimestep + nevery;
   // delete [] random;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int lammps_get_dem_steps(void *ptr) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
+
+  return fluid_ptr->dem_steps;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int lammps_get_bio_steps(void *ptr) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  return fluid_ptr->bio_steps;
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+int lammps_get_nloops(void *ptr) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
+
+  return fluid_ptr->nloops;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double lammps_get_bio_dt(void *ptr) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
+
+  return fluid_ptr->bio_dt;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double lammps_get_dem_dt(void *ptr) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
+
+  return fluid_ptr->dem_dt;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void lammps_set_demflag(void *ptr, int x) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
+
+  fluid_ptr->demflag = x;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int lammps_get_demflag(void *ptr) {
+  LAMMPS *lammps = (LAMMPS *) ptr;
+
+  // the pointer to the fix_fluid class
+  class FixFluid *fluid_ptr = NULL;
+
+  int i;
+  for (i = 0; i < (lammps->modify->nfix); i++) {
+    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
+      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+      break;
+    }
+  }
+
+  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
+
+  return fluid_ptr->demflag;
 }

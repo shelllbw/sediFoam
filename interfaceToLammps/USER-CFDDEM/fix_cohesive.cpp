@@ -209,7 +209,7 @@ void FixCohe::post_force(int vflag)
 	  }
 	}
   }
-}else if (opt ==1){      
+} else if (opt ==1){
 
 
    for (ii = 0; ii < nlocal; ii++){
@@ -237,7 +237,7 @@ void FixCohe::post_force(int vflag)
 	    del = r - radsum;
 	    if (del > smin)
 	      ccel = - ah*pow(radsum,6)/6.0/del/del/(r + radsum)/(r + radsum)/r/r/r;
-	    else 
+	    else
 	      ccel = 0;
 	     // ccel = - ah*pow(radsum,6)/6.0/smin/smin/(smin+ 2.0*radsum)/(smin + 2.0*radsum)
 	//	/(smin + radsum)/(smin + radsum)/(smin + radsum);
@@ -258,6 +258,59 @@ void FixCohe::post_force(int vflag)
 	  }
 	}
   }
+}else if (opt ==2){
+
+
+  for (ii = 0; ii < nlocal; ii++){
+ i = ilist[ii];
+ if (!(mask[i] & groupbit)) continue;
+ xtmp = x[i][0];
+ ytmp = x[i][1];
+ ztmp = x[i][2];
+ radi = radius[i];
+ jlist = firstneigh[i];
+ jnum = numneigh[i];
+
+
+ for (jj = 0; jj < jnum; jj++) {
+   j = jlist[jj];
+   delx = xtmp - x[j][0];
+   dely = ytmp - x[j][1];
+   delz = ztmp - x[j][2];
+   rsq = delx*delx + dely*dely + delz*delz;
+   radj = radius[j];
+   radsum = radi + radj;
+
+   if (rsq < (radsum + smax)*(radsum + smax)){
+     r = sqrt(rsq);
+     del = r - radsum;
+     if (del > smin)
+       ccel = - ah*pow(radsum,6)/6.0/del/del/(r + radsum)/(r + radsum)/r/r/r;
+     else if (del >= 0 && del <= smin)
+       //ccel = 0;
+       ccel = - ah*pow(radsum,6)/6.0/smin/smin/(smin+ 2.0*radsum)/(smin + 2.0*radsum)
+   /(smin + radsum)/(smin + radsum)/(smin + radsum);
+     else
+       ccel = 0;
+      // ccel = - ah*pow(radsum,6)/6.0/smin/smin/(smin+ 2.0*radsum)/(smin + 2.0*radsum)
+ //  /(smin + radsum)/(smin + radsum)/(smin + radsum);
+     rinv = 1/r;
+
+     ccelx = delx*ccel*rinv;
+     ccely = dely*ccel*rinv;
+     ccelz = delz*ccel*rinv;
+     f[i][0] += ccelx;
+     f[i][1] += ccely;
+     f[i][2] += ccelz;
+
+   if (newton_pair || j < nlocal){
+       f[j][0] -= ccelx;
+       f[j][1] -= ccely;
+       f[j][2] -= ccelz;
+     }
+   }
+ }
+ }
 }else error->all(FLERR,"invalid option for cohesive force model");
 }
 
@@ -521,7 +574,73 @@ else if (opt ==1){
 	  }
 	}
   }
-}else error->all(FLERR,"invalid compute option for this fix cohesion");
+}
+else if (opt ==2){
+
+   for (ii = 0; ii < nlocal; ii++){
+  i = ilist[ii];
+  if (!(mask[i] & groupbit)) continue;
+  xtmp = x[i][0];
+  ytmp = x[i][1];
+  ztmp = x[i][2];
+  radi = radius[i];
+  jlist = firstneigh[i];
+  jnum = numneigh[i];
+
+  for (jj = 0; jj < jnum ; jj++) {
+    j = jlist[jj];
+    delx = xtmp - x[j][0];
+    dely = ytmp - x[j][1];
+    delz = ztmp - x[j][2];
+    rsq = delx*delx + dely*dely + delz*delz;
+    radj = radius[j];
+    radsum = radi + radj;
+
+    if (rsq < (radsum + smax)*(radsum + smax)){
+      r = sqrt(rsq);
+      del = r - radsum;
+      f[0] = 0.0 ; f[1]= 0.0; f[2]= 0.0;
+      if (del > smin)
+        ccel = - ah*pow(radsum,6)/6.0/del/del/(r + radsum)/(r + radsum)
+    /r/r/r;
+      else if (del >= 0 && del <= smin)
+        //ccel = 0;
+        ccel = - ah*pow(radsum,6)/6.0/smin/smin/(smin+ 2.0*radsum)/(smin + 2.0*radsum)
+    /(smin + radsum)/(smin + radsum)/(smin + radsum);
+      else
+        ccel = 0;
+      rinv = 1/r;
+
+      ccelx = delx*ccel*rinv;
+      ccely = dely*ccel*rinv;
+      ccelz = delz*ccel*rinv;
+      f[0] += ccelx;
+      f[1] += ccely;
+      f[2] += ccelz;
+
+
+                         array_local[n][0] = tag[i];
+                         array_local[n][1] = f[0];
+                         array_local[n][2] = f[1];
+                         array_local[n][3] = f[2];
+                         array_local[n][4] = delx;
+                         array_local[n][5] = dely;
+                         array_local[n][6] = delz;
+      n++;
+                         array_local[n][0] = tag[j];
+                         array_local[n][1] = -f[0];
+                         array_local[n][2] = -f[1];
+                         array_local[n][3] = -f[2];
+                         array_local[n][4] = -delx;
+                         array_local[n][5] = -dely;
+                         array_local[n][6] = -delz;
+                       n++;
+
+    }
+  }
+  }
+}
+else error->all(FLERR,"invalid compute option for this fix cohesion");
 
 
 

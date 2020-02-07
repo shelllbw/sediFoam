@@ -129,6 +129,8 @@ void softParticleCloud::initLammps()
 
     int* npArray = new int [nprocs];
 
+    lammps_step(lmp_, 0);
+
     lammps_get_initial_np(lmp_, npArray);
 
     Info<< "creating new arrays..." << endl;
@@ -687,8 +689,6 @@ void softParticleCloud:: transposeAmongProcs
     }
 }
 
-// #define DEBUG_EVOLVE
-
 // Call Lammps and evolve forward some steps.  Given particle
 // positions, velocities, and drag.
 // This is a wrapper for the Lammps functions which actually does
@@ -735,8 +735,9 @@ void  softParticleCloud::lammpsEvolveForward
         fromFoamDragList[i] = FLocal[i];
         fromFoamDuDtList[i] = DuDtLocal[i];
         fromFoamTagList[i] = p.ptag();
-
         label lmpCpuId = p.pLmpCpuId();
+//        printf("\n");
+//        printf("rank=%i, i=%i, lmptag=%i, lmpcpu=%i \n", myrank, i, p.ptag(),lmpCpuId);
         assembleLmpCpuIdList[i] = lmpCpuId;
         lmpParticleNo[lmpCpuId] ++;
     }
@@ -803,6 +804,7 @@ void  softParticleCloud::lammpsEvolveForward
 
     // flatten the lists obtained for each LmpCpu
     label toLmpListSize = 0;
+
     forAll(toLmpTagListList, listI)
     {
         toLmpListSize += toLmpTagListList[listI].size();
@@ -1499,6 +1501,106 @@ bool softParticleCloud::pointInBox(vector& point, tensor& box)
     {
         return 0;
     }
+}
+
+void softParticleCloud::updateParticles() {
+
+  Info << "Update particle information..." << endl;
+
+  label nprocs = Pstream::nProcs();
+  label myrank = Pstream::myProcNo();
+
+  int lmpNLocal = lammps_get_local_n(lmp_);
+
+  label lmpNGlobal = lmpNLocal;
+
+  Info << "the number of particles in LAMMPS now is: " << lmpNGlobal << endl;
+  // deleteAllParticleOF();
+
+  // Harvest more infomation from each lmp cpu
+  double* fromLmpXArrayLocal = new double[3 * lmpNLocal];
+  double* fromLmpVArrayLocal = new double[3 * lmpNLocal];
+  int* fromLmpFoamCpuIdArrayLocal = new int[lmpNLocal];
+  int* fromLmpLmpCpuIdArrayLocal = new int[lmpNLocal];
+  int* fromLmpTagArrayLocal = new int[lmpNLocal];
+  double* fromLmpMArrayLocal = new double[lmpNLocal];
+  double* fromLmpDArrayLocal = new double[lmpNLocal];
+  int* fromLmpTypeArrayLocal = new int[lmpNLocal];
+
+  lammps_get_complete_local_info(lmp_, fromLmpXArrayLocal, fromLmpVArrayLocal,
+      fromLmpFoamCpuIdArrayLocal, fromLmpLmpCpuIdArrayLocal,
+      fromLmpTagArrayLocal, fromLmpMArrayLocal, fromLmpDArrayLocal,
+      fromLmpTypeArrayLocal);
+
+  // Transform the data obtained from lammps to openfoam format
+  vectorList fromLmpXList(lmpNLocal, vector::zero);
+  vectorList fromLmpVList(lmpNLocal, vector::zero);
+
+  labelList foamParticleNo(nprocs, 0);
+
+  int maxT = maxTag_;
+
+  for (label i = 0; i < lmpNLocal; i++) {
+    fromLmpXList[i] = vector(fromLmpXArrayLocal[3 * i + 0],
+        fromLmpXArrayLocal[3 * i + 1], fromLmpXArrayLocal[3 * i + 2]);
+
+    fromLmpVList[i] = vector(fromLmpVArrayLocal[3 * i + 0],
+        fromLmpVArrayLocal[3 * i + 1], fromLmpVArrayLocal[3 * i + 2]);
+
+    if (fromLmpTagArrayLocal[i] > maxT) {
+      ConstructParticle(fromLmpXList[i], fromLmpVList[i], fromLmpDArrayLocal[i],
+          fromLmpMArrayLocal[i], fromLmpTagArrayLocal[i],
+          fromLmpLmpCpuIdArrayLocal[i], fromLmpTypeArrayLocal[i]);
+    }
+  }
+
+  softParticle::trackingData td0(*this);
+  Cloud < softParticle > ::move(td0, 0);
+
+  delete[] fromLmpXArrayLocal;
+  delete[] fromLmpVArrayLocal;
+  delete[] fromLmpFoamCpuIdArrayLocal;
+  delete[] fromLmpLmpCpuIdArrayLocal;
+  delete[] fromLmpTagArrayLocal;
+  delete[] fromLmpMArrayLocal;
+  delete[] fromLmpDArrayLocal;
+  delete[] fromLmpTypeArrayLocal;
+}
+
+// Construct particle in FOAM from Lammps data:
+void softParticleCloud::ConstructParticle(vector pos, vector velo, double d,
+    double rho, int tag, int lmpCpuId, int type) {
+  label cellI = 0;
+
+  scalar ds = scalar(d);
+  scalar rhos = scalar(rho);
+  label tags = int(tag);
+  label lmpCpuIds = int(lmpCpuId);
+  label types = int(type);
+
+  // create a new softParticle when it is in the current processor
+  // but the computer is running much slower than before.
+  softParticle* ptr = new softParticle(pMesh(), pos, cellI, ds, velo, rhos,
+      tags, lmpCpuIds, types);
+
+  if (debug) {
+    Pout << "position is:" << pos << endl;
+    Pout << "cell is:" << cellI << endl;
+    Pout << "foam tag is:" << tags << endl;
+    Pout << "lammps CPU id is:" << lmpCpuId << endl;
+    Pout << "type is:" << types << endl;
+  }
+  addParticle(ptr);
+
+  for (softParticleCloud::iterator pIter = begin(); pIter != end(); ++pIter) {
+
+    softParticle& p = pIter();
+
+    // Update position:
+    p.positionOld() = p.position();
+    p.moveU() = (pos - p.position()) / mesh_.time().deltaTValue();
+    maxTag_ = max(p.ptag(), maxTag_);
+  }
 }
 
 void softParticleCloud::writeFields() const
