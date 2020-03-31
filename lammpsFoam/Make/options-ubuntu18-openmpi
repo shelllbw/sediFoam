@@ -5,8 +5,8 @@ EXE_INC = \
     -I$(PWD)/include \
     -I$(LAMMPS_DIR)/   \
     -I$(LAMMPS_DIR)/GRANULAR   \
-    -I$(OMPI_DIR)/include \
-    -I$(OMPI_DIR)/lib \
+    -I/usr/lib/x86_64-"linux"-gnu/openmpi/include \
+    -I/usr/lib/x86_64-"linux"-gnu/openmpi/lib \
     -I$(LAMMPS_DIR)/Obj_shanghailinux   \
     -I$(FOAM_SRC)/lagrangian/basic/lnInclude \
     -I$(FOAM_SRC)/meshTools/lnInclude \
@@ -32,7 +32,7 @@ EXE_LIBS = \
     -lrandomProcesses \
     -lmeshTools  \
     -llagrangian \
-    -L$(OMPI_DIR)/lib -lmpi -lmpi_cxx \	    
+    -L/usr/lib/x86_64-"linux"-gnu/openmpi/lib -lmpi -lmpi_cxx \	    
     -llammps_shanghailinux \
     -ltriSurface \
     -lchPressureGrad-DEM \
@@ -40,4 +40,4 @@ EXE_LIBS = \
     -lturbulenceModels \
     -lincompressibleTurbulenceModels \
     -llammpsFoamTurbulenceModels \
-    -lstdc++
+    -lstdc++ 
