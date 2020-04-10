@@ -736,8 +736,6 @@ void  softParticleCloud::lammpsEvolveForward
         fromFoamDuDtList[i] = DuDtLocal[i];
         fromFoamTagList[i] = p.ptag();
         label lmpCpuId = p.pLmpCpuId();
-//        printf("\n");
-//        printf("rank=%i, i=%i, lmptag=%i, lmpcpu=%i \n", myrank, i, p.ptag(),lmpCpuId);
         assembleLmpCpuIdList[i] = lmpCpuId;
         lmpParticleNo[lmpCpuId] ++;
     }
@@ -905,9 +903,6 @@ void  softParticleCloud::lammpsEvolveForward
         delete [] toLmpTagLocalArray_;
     }
 
-    // delete [] toLmpFLocalArray_;
-    // delete [] toLmpFoamCpuIdLocalArray_;
-    // delete [] toLmpTagLocalArray_;
 
     cpuTimeSplit_[3] += runTime_.elapsedCpuTime() - t0;
     t0 = runTime_.elapsedCpuTime();
@@ -1091,22 +1086,6 @@ void  softParticleCloud::lammpsEvolveForward
     sortedOrder(fromFoamTagList, sortedFromFoamTag);
     sortedOrder(toFoamTagList, sortedToFoamTag);
 
-    // remove missing particles cause by lammps fix wall
-    if(lmpNGlobalin != lmpNGlobalout) {
-      for(label i = 0; i < nList; i++)
-      {
-        int exist = 0;
-        for(label j = 0; j < nList; j++)
-        {
-          if ((toFoamTagList[j] == fromFoamTagList[i])) {
-            exist = 1;
-            break;
-          }
-        }
-        if(!exist) delMissingParticles(fromFoamTagList[i]);
-      }
-    }
-
     for(label i = 0; i < nList; i++)
     {
         label fromI = sortedFromFoamTag[i];
@@ -1138,24 +1117,6 @@ void  softParticleCloud::lammpsEvolveForward
 
     Info<< "LAMMPS evolving finished! .. " << endl;
 } // Job done; Proceed to next fluid calculation step.
-
-
-void softParticleCloud::delMissingParticles(label tag) {
-
-  for
-  (
-      softParticleCloud::iterator pIter = begin();
-      pIter != end();
-      ++pIter
-  )
-  {
-      softParticle& p = pIter();
-      if (tag == p.ptag()) {
-        deleteParticle(p);
-        break;
-      }
-  }
-}
 
 // Add new particles in OpenFOAM
 void softParticleCloud::addNewParticles()
@@ -1424,7 +1385,7 @@ bool softParticleCloud::pointInRegion(vector& point, tensor& box)
     scalar r1 = box.component(6);
     scalar r2 = box.component(7);
 
-    if (addParticleOption_ == 1)
+    if (addParticleOption_ == 1 || deleteParticleOption_ == 1)
     {
         if
         (

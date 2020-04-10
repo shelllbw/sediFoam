@@ -1103,7 +1103,7 @@ void enhancedCloud::deleteParticleBeforeAdd()
             softParticle& p = pIter();
             vector pPosition = p.position();
 
-            if (pointInRegion(pPosition, clearInitialBox_) && (p.ptype() == 1))
+            if (pointInRegion(pPosition, clearInitialBox_))
             {
                 nDelete++;
             }
@@ -1131,7 +1131,7 @@ void enhancedCloud::deleteParticleBeforeAdd()
             softParticle& p = pIter();
             vector pPosition = p.position();
 
-            if (pointInRegion(pPosition, clearInitialBox_) && (p.ptype() == 1))
+            if (pointInRegion(pPosition, clearInitialBox_))
             {
                 Info<< "deleting particle.." << endl;
                 // TODO: this may have problem for parallel computing
@@ -1208,7 +1208,7 @@ void enhancedCloud::deleteParticleOpenFOAM()
             softParticle& p = pIter();
             vector pPosition = p.position();
 
-            if (pointInRegion(pPosition, deleteParticleBox_) && (p.ptype() == 1))
+            if (pointInRegion(pPosition, deleteParticleBox_))
             {
                 nDelete++;
             }
@@ -1236,9 +1236,9 @@ void enhancedCloud::deleteParticleOpenFOAM()
             softParticle& p = pIter();
             vector pPosition = p.position();
 
-            if (pointInRegion(pPosition, deleteParticleBox_) && (p.ptype() == 1))
+            if (pointInRegion(pPosition, deleteParticleBox_))
             {
-                Info<< "deleting particle.." << endl;
+               // Info<< "deleting particle.." << endl;
                 // TODO: this may have problem for parallel computing
                 deleteParticleList_[i] = p.ptag();
                 label boxI = p.pLmpCpuId();

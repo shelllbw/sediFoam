@@ -71,7 +71,6 @@ extern "C" {
   void lammps_set_demflag(void *ptr, int x);
 
   int lammps_get_bio_steps(void* ptr);
-  int lammps_get_dem_steps(void* ptr);
   int lammps_get_nloops(void* ptr);
   double lammps_get_bio_dt(void* ptr);
   double lammps_get_dem_dt(void* ptr);

@@ -377,11 +377,6 @@ public:
               return lammps_get_bio_steps(lmp_);
             };
 
-            int get_lmp_dem_steps()
-            {
-              return lammps_get_dem_steps(lmp_);
-            };
-
             int get_lmp_nloops()
             {
               return lammps_get_nloops(lmp_);

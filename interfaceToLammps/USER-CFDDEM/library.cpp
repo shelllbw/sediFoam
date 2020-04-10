@@ -23,7 +23,7 @@
 #include "atom_vec.h"
 #include "fix_fluid_drag.h" // added JS
 #include "fix_bio_kinetics.h"
-#include "fix_bio_fluid.h" // added JS
+#include "fix_bio_sedifoam.h" // added JS
 #include "modify.h"
 #include "string.h"
 #include "stdio.h"
@@ -758,42 +758,21 @@ void lammps_delete_particle(void *ptr, int* deleteList, int nDelete)
 
 /* ---------------------------------------------------------------------- */
 
-int lammps_get_dem_steps(void *ptr) {
-  LAMMPS *lammps = (LAMMPS *) ptr;
-
-  // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
-
-  int i;
-  for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
-      break;
-    }
-  }
-
-  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
-
-  return fluid_ptr->dem_steps;
-}
-
-/* ---------------------------------------------------------------------- */
-
 int lammps_get_bio_steps(void *ptr) {
   LAMMPS *lammps = (LAMMPS *) ptr;
 
   // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
+  class FixSedifoam *sedifoam_ptr = NULL;
 
   int i;
   for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+    if (strcmp(lammps->modify->fix[i]->style, "sedifoam") == 0) {
+    	sedifoam_ptr = (FixSedifoam *) lammps->modify->fix[i];
       break;
     }
   }
 
-  return fluid_ptr->bio_steps;
+  return sedifoam_ptr->bio_steps;
 }
 
 
@@ -803,19 +782,17 @@ int lammps_get_nloops(void *ptr) {
   LAMMPS *lammps = (LAMMPS *) ptr;
 
   // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
+  class FixSedifoam *sedifoam_ptr = NULL;
 
   int i;
   for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+    if (strcmp(lammps->modify->fix[i]->style, "sedifoam") == 0) {
+    	sedifoam_ptr = (FixSedifoam *) lammps->modify->fix[i];
       break;
     }
   }
 
-  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
-
-  return fluid_ptr->nloops;
+  return sedifoam_ptr->nloops;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -824,19 +801,18 @@ double lammps_get_bio_dt(void *ptr) {
   LAMMPS *lammps = (LAMMPS *) ptr;
 
   // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
+  class FixSedifoam *sedifoam_ptr = NULL;
 
   int i;
   for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+    if (strcmp(lammps->modify->fix[i]->style, "sedifoam") == 0) {
+    	sedifoam_ptr = (FixSedifoam *) lammps->modify->fix[i];
       break;
     }
   }
 
-  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
 
-  return fluid_ptr->bio_dt;
+  return sedifoam_ptr->bio_dt;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -845,19 +821,18 @@ double lammps_get_dem_dt(void *ptr) {
   LAMMPS *lammps = (LAMMPS *) ptr;
 
   // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
+  class FixSedifoam *sedifoam_ptr = NULL;
 
   int i;
   for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+    if (strcmp(lammps->modify->fix[i]->style, "sedifoam") == 0) {
+    	sedifoam_ptr = (FixSedifoam *) lammps->modify->fix[i];
       break;
     }
   }
 
-  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
 
-  return fluid_ptr->dem_dt;
+  return sedifoam_ptr->dem_dt;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -866,19 +841,18 @@ void lammps_set_demflag(void *ptr, int x) {
   LAMMPS *lammps = (LAMMPS *) ptr;
 
   // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
+  class FixSedifoam *sedifoam_ptr = NULL;
 
   int i;
   for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+    if (strcmp(lammps->modify->fix[i]->style, "sedifoam") == 0) {
+    	sedifoam_ptr = (FixSedifoam *) lammps->modify->fix[i];
       break;
     }
   }
 
-  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
 
-  fluid_ptr->demflag = x;
+  sedifoam_ptr->demflag = x;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -887,17 +861,16 @@ int lammps_get_demflag(void *ptr) {
   LAMMPS *lammps = (LAMMPS *) ptr;
 
   // the pointer to the fix_fluid class
-  class FixFluid *fluid_ptr = NULL;
+  class FixSedifoam *sedifoam_ptr = NULL;
 
   int i;
   for (i = 0; i < (lammps->modify->nfix); i++) {
-    if (strcmp(lammps->modify->fix[i]->style, "cfddem") == 0) {
-      fluid_ptr = (FixFluid *) lammps->modify->fix[i];
+    if (strcmp(lammps->modify->fix[i]->style, "sedifoam") == 0) {
+    	sedifoam_ptr = (FixSedifoam *) lammps->modify->fix[i];
       break;
     }
   }
 
-  //if (fluid_ptr == NULL)  error->all(FLERR, "Cannot finid fix nufebFoam");
 
-  return fluid_ptr->demflag;
+  return sedifoam_ptr->demflag;
 }
